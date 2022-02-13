@@ -28,7 +28,7 @@ def load_2(mean):
     return x
 
 
-def kyoubunsan(x):
+def kyoubunsan(x):#共分散行列を求める
     if x.ndim != 1:
         num = x.shape[0]
         size = x.shape[1]
@@ -44,7 +44,7 @@ def kyoubunsan(x):
         return np.dot(tmp, tmp.T)/x.size
 
 
-def diag_mat(d_tmp):
+def diag_mat(d_tmp):#固有値の-1/2乗を並べた対角行列を返す
     size = d_tmp.size
     d = np.zeros((size, size))
     for i in range(size):
@@ -52,14 +52,13 @@ def diag_mat(d_tmp):
     return d
 
 
-def maximum(z, num):
+def maximum(z, num):#ansから呼び出す。最適なwを返す
     norm = 1.
     w = np.zeros(num)
-    for i in range(num):
+    for i in range(num):#ランダムな初期値
         w[i] = random.uniform(-100, 100)
     w = w/np.linalg.norm(w, ord=2)
-    print(w)
-    while(norm > 1e-15):
+    while(norm > 1e-15):#収束すれば終わり
         w_prev = np.copy(w)
         tmp1 = np.dot(w, z)
         tmp2 = np.multiply(tmp1, np.multiply(tmp1, tmp1))
@@ -74,18 +73,27 @@ def maximum(z, num):
     return w
 
 
-def ans(z):
+def ans(z):#信号源の数だけmaximumを呼び出す
     num = z.shape[0]
     y = np.zeros((num, z.shape[1]))
-    for i in range(num):
+    i = 0
+    while i<num:
         y[i, :] = np.dot(maximum(z, num), z)
+        if i>=1:#以下では、同じ信号源を抽出してしまったときのための処理を行う
+            ytmp = y[i,:]
+            for j in range(i):
+                yprev = y[j,:]
+                ycmp1 = yprev-ytmp
+                ycmp2 = yprev+ytmp
+                if np.linalg.norm(ycmp1,ord=1)<1 or np.linalg.norm(ycmp2,ord=1)<1:
+                    i=i-1
+                    break
+        i=i+1
     return y
 
+x=load_2()
 
-# Audio("speechA1.wav")
-mmm = [0, 0]
-x = load_2(mmm)
-print(mmm)
+#####白色化と復号処理##########################
 sigm = kyoubunsan(x)
 sigm_eig = np.linalg.eig(sigm)
 d_tmp = sigm_eig[0]
@@ -93,17 +101,13 @@ e = sigm_eig[1]
 d = diag_mat(d_tmp)
 v = np.dot(np.dot(e, d), e.T)
 z = np.dot(v, x)
-print('sigm', sigm)
-ddd = np.array([[d_tmp[0], 0], [0, d_tmp[1]]])
-print(np.dot(e, np.dot(ddd, e.T)))
-print(d)
-print(z.max())
 y = ans(z)
-y *= 5000  # どうやらICAでは振幅まで再現できないらしい。ここをどうするかが問題　あと、平均引いた処理もどうなるのか
-x[0, :] += mmm[0]
-x[1, :] += mmm[1]
-ans1 = y[1, :]
-write('A2.wav', rate=8000, data=ans1.astype('int16'))
+################################
+
+y*=5000#####################ICAでは振幅まで再現できないらしいので、とりあえず聞こえる程度まで復元
+ans0 = y[0,:]
+write('A1.wav',rate=8000,data=ans0.astype('int16'))
+ans1 = y[1,:]
+write('A2.wav',rate=8000,data=ans1.astype('int16'))
 plt.plot(ans1)
-# plt.plot(x[1,:],color='red')
-print(np.linalg.norm(ans1, ord=2))
+plt.plot(ans0,color='red')
